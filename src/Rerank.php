@@ -19,7 +19,7 @@ final class Rerank
     }
 
     /**
-     * @param list<array<string, mixed>> $candidates
+     * @param  list<array<string, mixed>>  $candidates
      * @return list<array<string, mixed>>
      */
     public function rerank(
@@ -79,7 +79,7 @@ final class Rerank
     }
 
     /**
-     * @param list<array<string, mixed>> $candidates
+     * @param  list<array<string, mixed>>  $candidates
      * @return list<array<string, mixed>>
      */
     private function validateCandidates(array $candidates): array
@@ -127,9 +127,6 @@ final class Rerank
         return $validated;
     }
 
-    /**
-     * @param mixed $features
-     */
     private function validateFeatures(mixed $features): void
     {
         if (! is_array($features)) {
@@ -148,8 +145,7 @@ final class Rerank
     }
 
     /**
-     * @param mixed $rankLists
-     * @param array<string, array<int, bool>> $usedRanks
+     * @param  array<string, array<int, bool>>  $usedRanks
      */
     private function validateRankLists(mixed $rankLists, array &$usedRanks): void
     {
@@ -175,7 +171,7 @@ final class Rerank
     }
 
     /**
-     * @param list<array<string, mixed>> $candidates
+     * @param  list<array<string, mixed>>  $candidates
      * @return array<string, float>
      */
     private function fuseRanks(array $candidates, int $rrfK): array

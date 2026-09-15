@@ -12,7 +12,7 @@ final class LinearFeatureScorer implements Scorer
     private float $rrfWeight;
 
     /**
-     * @param array<string, int|float> $weights
+     * @param  array<string, int|float>  $weights
      */
     public function __construct(array $weights, mixed $rrfWeight = 0.0)
     {
@@ -35,7 +35,7 @@ final class LinearFeatureScorer implements Scorer
     }
 
     /**
-     * @param array<string, mixed> $candidate
+     * @param  array<string, mixed>  $candidate
      */
     public function score(string $query, array $candidate, float $rrfScore): float
     {

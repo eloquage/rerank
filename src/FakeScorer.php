@@ -12,7 +12,7 @@ final class FakeScorer implements Scorer
     private float $defaultScore;
 
     /**
-     * @param array<string, int|float> $scores
+     * @param  array<string, int|float>  $scores
      */
     public function __construct(array $scores, mixed $defaultScore = 0.0)
     {
@@ -35,7 +35,7 @@ final class FakeScorer implements Scorer
     }
 
     /**
-     * @param array<string, mixed> $candidate
+     * @param  array<string, mixed>  $candidate
      */
     public function score(string $query, array $candidate, float $rrfScore): float
     {
