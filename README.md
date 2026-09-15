@@ -1,57 +1,116 @@
-# Cross-encoder and feature-based reranking helpers for PHP search pipelines (lexical + vector candidate sets).
+# eloquage/rerank
 
-[![Latest Version on Packagist](https://img.shields.io/packagist/v/eloquage/rerank.svg?style=flat-square)](https://packagist.org/packages/eloquage/rerank)
-[![Tests](https://github.com/spatie/package-skeleton-php/actions/workflows/run-tests-pest.yml/badge.svg)](https://github.com/eloquage/rerank/actions/workflows/run-tests.yml)
-[![Total Downloads](https://img.shields.io/packagist/dt/eloquage/rerank.svg?style=flat-square)](https://packagist.org/packages/eloquage/rerank)
-
-This is where your description should go. Try and limit it to a paragraph or two. Consider adding a small example.
-
-## Support us
-
-[<img src="https://github-ads.s3.eu-central-1.amazonaws.com/rerank.jpg?t=1" width="419px" />](https://spatie.be/github-ad-click/rerank)
-
-We invest a lot of resources into creating [best in class open source packages](https://spatie.be/open-source). You can support us by [buying one of our paid products](https://spatie.be/open-source/support-us).
-
-We highly appreciate you sending us a postcard from your hometown, mentioning which of our package(s) you are using. You'll find our address on [our contact page](https://spatie.be/about-us). We publish all received postcards on [our virtual postcard wall](https://spatie.be/open-source/postcards).
+In-process Reciprocal Rank Fusion and feature-weighted reranking helpers for
+PHP search pipelines.
 
 ## Installation
-
-You can install the package via composer:
 
 ```bash
 composer require eloquage/rerank
 ```
 
+The package is framework-agnostic and always works through its pure-PHP source.
+It has no HTTP, model, ONNX, or Laravel dependency.
+
 ## Usage
 
+`Rerank::rerank()` accepts a query and a packed list of candidate records. Each
+record needs a unique non-empty string `id` and a string `text`. It may include
+named numeric `features` and per-source one-based `rank_lists`:
+
 ```php
-$skeleton = new Eloquage\Rerank();
-echo $skeleton->echoPhrase('Hello, Eloquage!');
+use Eloquage\Rerank\Rerank;
+
+$results = (new Rerank)->rerank('hybrid search', [
+    [
+        'id' => 'doc-1',
+        'text' => 'Hybrid retrieval guide',
+        'features' => ['semantic' => 0.9, 'freshness' => 2],
+        'rank_lists' => ['lexical' => 2, 'vector' => 1],
+    ],
+    [
+        'id' => 'doc-2',
+        'text' => 'Lexical retrieval guide',
+        'rank_lists' => ['lexical' => 1],
+    ],
+]);
 ```
 
-## Testing
+The returned records preserve the input fields and add one finite float
+`score`. Input records are not mutated. Candidate input `score` is reserved
+and rejected; malformed IDs, text, features, ranks, duplicate IDs, and
+duplicate ranks within a source raise `InvalidArgumentException`.
+
+## Reciprocal Rank Fusion
+
+Without a scorer, each result uses:
+
+```text
+RRF(d) = Σ 1 / (k + rank(source, d))
+```
+
+The default smoothing constant is `k = 60`. Set `rrfK` to a positive integer
+to use another value. A candidate missing from a source contributes nothing
+for that source, and a candidate absent from every source remains eligible for
+an explicitly supplied scorer.
+
+```php
+$results = (new Rerank)->rerank(
+    'query',
+    $candidates,
+    rrfK: 20,
+    topN: 10,
+);
+```
+
+`topN` is optional, may be zero, and limits the final ordered list. Descending
+scores use an explicit original-input ordinal as the tie breaker, so exact
+ties retain caller order.
+
+## Feature-weighted scoring
+
+`LinearFeatureScorer` computes a named weighted sum and can explicitly blend
+the private RRF component. Missing configured features contribute zero and
+extra candidate features are ignored. Negative finite weights are allowed.
+
+```php
+use Eloquage\Rerank\LinearFeatureScorer;
+
+$scorer = new LinearFeatureScorer(
+    weights: ['semantic' => 0.7, 'freshness' => 0.3],
+    rrfWeight: 0.25,
+);
+
+$results = (new Rerank)->rerank('query', $candidates, scorer: $scorer);
+```
+
+`FakeScorer` is a deterministic, no-I/O adapter for tests and local demos. It
+maps candidate IDs to finite scores and accepts a finite `defaultScore` for
+unmapped IDs.
+
+```php
+use Eloquage\Rerank\FakeScorer;
+
+$results = (new Rerank)->rerank(
+    'query',
+    $candidates,
+    scorer: new FakeScorer(['doc-1' => 1.0], defaultScore: 0.0),
+);
+```
+
+Both adapters implement the narrow `Scorer` interface, which receives the
+query, validated candidate, and private RRF score and returns the final score.
+A future ONNX cross-encoder can use the same seam for query/document pairs;
+v1 does not load models, call Cohere, or add an ONNX dependency.
+
+## Testing and optional native acceleration
 
 ```bash
 composer test
+vendor/bin/pest --coverage --min=90
 ```
 
-## Changelog
-
-Please see [CHANGELOG](CHANGELOG.md) for more information on what has changed recently.
-
-## Contributing
-
-Please see [CONTRIBUTING](https://github.com/spatie/.github/blob/main/CONTRIBUTING.md) for details.
-
-## Security Vulnerabilities
-
-Please review [our security policy](../../security/policy) on how to report security vulnerabilities.
-
-## Credits
-
-- [Miguel Enes](https://github.com/eloquage)
-- [All Contributors](../../contributors)
-
-## License
-
-The MIT License (MIT). Please see [License File](LICENSE.md) for more information.
+TypePHP is an optional maintainer build in Docker, using extension mode and
+the shared builder contract documented in [TYPEPHP.md](TYPEPHP.md). Native
+compilation is explicitly outside the v1 rerank capability; PHP consumers do
+not need TypePHP or `swoole/typephp`.
