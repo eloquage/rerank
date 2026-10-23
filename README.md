@@ -1,5 +1,7 @@
 # eloquage/rerank
 
+<p align="center"><img src="art/banner.png" alt="rerank package banner" width="100%"></p>
+
 In-process Reciprocal Rank Fusion and feature-weighted reranking helpers for
 PHP search pipelines.
 
